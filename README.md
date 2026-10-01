@@ -1,1 +1,3 @@
-# CalcBuddy
+# CalcBuddy 
+## Prompt :-
+i wish to create a webapp CalcBuddy, which would be helpful to the engg students. the service is basically a calculator which could be used in three modes, basic, advanced and archive. basic gives a scientific calculator with speech to text calculations, advanced provide options like calculus, matrix, etc... and can solve matrix multiplications, taylors theorem, etc. the archive feature consist of maths or physics notes, like imp theorems or examples and codeblock feature which gives the code of mathermatical equation like sinx, fibonnaci, matrix, etc in desired language. there should a theme toggle and login feature to store your work.
