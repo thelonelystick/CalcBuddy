@@ -1,6 +1,6 @@
 # CalcBuddy 
 ## Prompt :-
-Act as an expert Full-Stack Software Architect. I need a comprehensive technical blueprint and boilerplate implementation strategy for a web application called "CellBuddy," designed as an engineering student utility.
+Act as an expert Full-Stack Software Architect. I need a comprehensive technical blueprint and boilerplate implementation strategy for a web application called "CalcBuddy," designed as an engineering student utility.
 
 The application must features a student-facing portal and a secure Admin Dashboard that allows content management (notes, code blocks, math formulas) dynamically without requiring frontend redeployments.
 
