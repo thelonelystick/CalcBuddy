@@ -254,11 +254,12 @@ function App() {
       const { data: profile, error: profileError } = await client.from("profiles").select("role").eq("id", user.id).single();
       if (!alive) return;
       if (profileError || profile?.role !== "admin") {
-        await client.auth.signOut();
-        if (alive) {
-          setAdmin(false);
-          setAdminMessage("This Google account is not configured as an administrator.");
-        }
+        setAdmin(false);
+        setAdminMessage(
+          profileError
+            ? `Could not verify admin access: ${profileError.message}. Run the CalcBuddy Supabase migration, then reload.`
+            : `This Google account (${user.email || "unknown email"}) has student access. Run the CalcBuddy Supabase migration if this should be the configured admin.`,
+        );
         return;
       }
       setSessionEmail(user.email || "");

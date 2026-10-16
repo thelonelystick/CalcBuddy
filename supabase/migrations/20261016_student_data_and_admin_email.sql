@@ -61,9 +61,18 @@ begin
   return new;
 end; $$;
 
-update public.profiles p set role = case
-  when lower(u.email) = 'sooryavanshibhawishya@gmail.com' then 'admin'
-  else 'student'
-end
+update public.profiles p
+set role = 'student'
 from auth.users u
-where p.id = u.id;
+where p.id = u.id and lower(coalesce(u.email, '')) <> 'sooryavanshibhawishya@gmail.com';
+
+insert into public.profiles (id, display_name, role)
+select
+  u.id,
+  coalesce(u.raw_user_meta_data ->> 'full_name', ''),
+  'admin'
+from auth.users u
+where lower(coalesce(u.email, '')) = 'sooryavanshibhawishya@gmail.com'
+on conflict (id) do update set role = 'admin';
+
+notify pgrst, 'reload schema';
