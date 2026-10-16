@@ -23,7 +23,7 @@ CalcBuddy is a React + TypeScript + Vite engineering utility with Basic, Advance
 ## Run locally
 1. Install dependencies: `npm install`
 2. Copy `.env.example` to `.env.local`.
-3. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the project's URL and publishable key. `VITE_SUPABASE_ANON_KEY` is also supported for older setups. Never use a secret/service-role key in a `VITE_` variable.
+3. Set the project's URL and publishable key. The app accepts `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` (preferred) or `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY`. `VITE_SUPABASE_ANON_KEY` is also supported for older setups. Never add a secret/service-role key to the frontend environment.
 4. For a new project, run `supabase/schema.sql` in Supabase SQL Editor. For an existing project, run `supabase/migrations/20261016_student_data_and_admin_email.sql`.
 5. Start: `npm run dev`
 6. Production build: `npm run build`
@@ -31,8 +31,7 @@ CalcBuddy is a React + TypeScript + Vite engineering utility with Basic, Advance
 ## Deploy to Vercel
 In Vercel, open the project's **Settings → Environment Variables** and add these variables for Production (and Preview if you use preview deployments):
 
-- `VITE_SUPABASE_URL`: your Supabase project URL.
-- `VITE_SUPABASE_PUBLISHABLE_KEY`: the Supabase publishable key (never use the secret/service-role key).
+- `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (or their `VITE_`-prefixed equivalents): your Supabase project URL and publishable key. Never add `SUPABASE_SECRET_KEY` or the service-role key to the frontend environment.
 
 Redeploy after adding or changing either variable. Vite embeds `VITE_` variables during the build, so changing them does not update an existing deployment. If the app says Supabase is not configured, verify both variables are present in the Vercel environment used by that deployment.
 
