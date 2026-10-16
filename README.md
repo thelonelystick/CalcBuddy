@@ -21,7 +21,7 @@ CalcBuddy is a React + TypeScript + Vite engineering utility with Basic, Advance
 ## Run locally
 1. Install dependencies: `npm install`
 2. Copy `.env.example` to `.env.local`.
-3. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to the project's URL and publishable/anon key.
+3. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the project's URL and publishable key. `VITE_SUPABASE_ANON_KEY` is also supported for older setups. Never use a secret/service-role key in a `VITE_` variable.
 4. In Supabase SQL Editor, run `supabase/schema.sql`.
 5. Start: `npm run dev`
 6. Production build: `npm run build`
@@ -29,14 +29,15 @@ CalcBuddy is a React + TypeScript + Vite engineering utility with Basic, Advance
 If Supabase is not configured, the calculator, matrix lab, LaTeX editor, and bundled demo archive still work. Admin CRUD and live sync require Supabase.
 
 ## Configure administrator access
-1. Enable the Google provider in Supabase Authentication and configure its OAuth credentials and redirect URLs.
-2. The database trigger creates a `profiles` row with role `student`.
-3. Copy that user's Auth UUID, then run in SQL Editor:
+1. Enable the Google provider in Supabase Authentication and configure its OAuth credentials. In Google Cloud, add your app origin (for local development, `http://localhost:5173`) to **Authorized JavaScript origins** and `https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback` to **Authorized redirect URIs**.
+2. Add your local and deployed app URLs to Supabase Authentication → URL Configuration → Redirect URLs (for example, `http://localhost:5173/**` and `https://your-app.vercel.app/**`).
+3. The database trigger creates a `profiles` row with role `student`.
+4. Copy that user's Auth UUID, then run in SQL Editor:
    ```sql
    update public.profiles set role = 'admin' where id = 'AUTH_USER_UUID';
    ```
-4. Open `/admin` on the deployed site and continue with Google. The app checks the signed-in user's database role and signs out non-admin users.
-5. Do not expose the Supabase `service_role` key to the frontend.
+5. Open `/admin` on the deployed site and continue with Google. The app checks the signed-in user's database role and signs out non-admin users.
+6. Do not expose the Supabase secret/service-role key to the frontend.
 
 ## Data model
 - `profiles`: auth user role (`student` / `admin`)
