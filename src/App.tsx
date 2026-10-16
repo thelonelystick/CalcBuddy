@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { all, create, format, type MathNode } from "mathjs";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -166,7 +166,7 @@ function App() {
     </main><footer><span>∑ CalcBuddy</span><span>Made for curious minds. Built for engineering.</span><span>© 2026</span></footer>
   </div>;
 }
-function MatrixEditor({title,values,onChange}:{title:string;values:string[][];onChange:(v:string[][])=>void}) {
+function MatrixEditor({title,values,onChange}:{title:string;values:string[][];onChange:Dispatch<SetStateAction<string[][]>>}) {
  return <div className="matrix-card"><h3>{title}</h3><div className="matrix-input-grid" style={{gridTemplateColumns:`repeat(${Math.max(1,values[0]?.length||1)}, minmax(42px,1fr))`}}>{values.map((row,r)=>row.map((v,c)=><input aria-label={`${title} row ${r+1} column ${c+1}`} key={`${r}-${c}`} value={v} onChange={e=>onChange(old=>old.map((oldRow,rr)=>oldRow.map((oldVal,cc)=>rr===r&&cc===c?e.target.value:oldVal)))} />))}</div></div>;
 }
 export default App;
