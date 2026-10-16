@@ -28,6 +28,14 @@ CalcBuddy is a React + TypeScript + Vite engineering utility with Basic, Advance
 5. Start: `npm run dev`
 6. Production build: `npm run build`
 
+## Deploy to Vercel
+In Vercel, open the project's **Settings → Environment Variables** and add these variables for Production (and Preview if you use preview deployments):
+
+- `VITE_SUPABASE_URL`: your Supabase project URL.
+- `VITE_SUPABASE_PUBLISHABLE_KEY`: the Supabase publishable key (never use the secret/service-role key).
+
+Redeploy after adding or changing either variable. Vite embeds `VITE_` variables during the build, so changing them does not update an existing deployment. If the app says Supabase is not configured, verify both variables are present in the Vercel environment used by that deployment.
+
 If Supabase is not configured, the calculator, matrix lab, LaTeX editor, and bundled demo archive still work. Admin CRUD and live sync require Supabase.
 
 ## Configure Google sign-in and administrator access
