@@ -543,7 +543,7 @@ function App() {
             <span>{formula.label || "Formula"}</span><BlockMath math={formula.latex} />
           </div>)}
         </div> : null}
-        {selectedNote.code_blocks?.length ? <div className="code-section">
+        {mode === "Code" && selectedNote.code_blocks?.length ? <div className="code-section">
           {selectedNote.code_blocks.map((block, index) => <CodeBlock key={index} language={block.language} code={block.code} title={block.title} />)}
         </div> : null}
         <section className="student-resource-data">
