@@ -1,13 +1,14 @@
 # CalcBuddy
 
-CalcBuddy is a React + TypeScript + Vite starter for an engineering-student utility with Basic, Advanced, Archive, and role-protected content-management experiences.
+CalcBuddy is a React + TypeScript + Vite engineering utility with Basic, Advanced, Theory, and Code workspaces.
 
 ## Included
 - Scientific calculator using Math.js parsing/evaluation (no JavaScript `eval`).
 - Browser Web Speech API voice input and spoken-number/operator normalization.
+- Calculation history persisted in the browser.
 - Matrix multiplication panel with configurable dimensions.
 - LaTeX preview using KaTeX.
-- Markdown archive and syntax-highlighted code examples.
+- Theory notes and syntax-highlighted code examples.
 - Supabase Auth, PostgreSQL schema, Row Level Security policies, and realtime refresh subscription.
 - Admin content form for Markdown, a LaTeX formula, and a language-labelled code block.
 - Responsive dark/light theme persisted to localStorage.
@@ -27,14 +28,14 @@ CalcBuddy is a React + TypeScript + Vite starter for an engineering-student util
 
 If Supabase is not configured, the calculator, matrix lab, LaTeX editor, and bundled demo archive still work. Admin CRUD and live sync require Supabase.
 
-## Create the first administrator
-1. In Supabase Authentication, create a user with email/password.
+## Configure administrator access
+1. Enable the Google provider in Supabase Authentication and configure its OAuth credentials and redirect URLs.
 2. The database trigger creates a `profiles` row with role `student`.
 3. Copy that user's Auth UUID, then run in SQL Editor:
    ```sql
    update public.profiles set role = 'admin' where id = 'AUTH_USER_UUID';
    ```
-4. Sign in through Admin login. The app checks the authenticated user's database role and signs out non-admin users.
+4. Open `/admin` on the deployed site and continue with Google. The app checks the signed-in user's database role and signs out non-admin users.
 5. Do not expose the Supabase `service_role` key to the frontend.
 
 ## Data model
@@ -51,7 +52,6 @@ For production, enable Realtime for `notes` in Supabase Database → Replication
 
 ## Important hardening before public launch
 This is a functional starter, not a completed security audit:
-- Replace `prompt()`-based admin login with a designed login page and add password reset / session UX.
 - Add transactional RPC for note + formula + code updates; current UI writes related records as sequential requests.
 - Add server-side validation and rate limits where needed; cap Markdown, code and formula sizes.
 - Add audit logging, backups, error monitoring, automated tests, and deployment secrets management.
