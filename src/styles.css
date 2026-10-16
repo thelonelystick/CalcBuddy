@@ -69,7 +69,7 @@ button:disabled { cursor: not-allowed; opacity: .48; }
   background: color-mix(in srgb, var(--surface) 85%, transparent);
   box-shadow: 0 5px 20px #3d4c5910;
 }
-.nav-btn, .icon-btn, .clear-history, .back-link {
+.nav-btn, .icon-btn, .clear-history, .back-link, .sign-in-btn {
   border: 0;
   background: transparent;
   color: var(--muted);
@@ -80,7 +80,7 @@ button:disabled { cursor: not-allowed; opacity: .48; }
   font-weight: 700;
   transition: color .2s ease, background .2s ease, transform .2s ease, box-shadow .2s ease;
 }
-.nav-btn:hover, .icon-btn:hover, .back-link:hover { color: var(--accent); transform: translateY(-1px); }
+.nav-btn:hover, .icon-btn:hover, .back-link:hover, .sign-in-btn:hover { color: var(--accent); transform: translateY(-1px); }
 .nav-btn.active {
   background: var(--surface2);
   color: var(--accent);
@@ -89,6 +89,9 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .header-actions { display: flex; align-items: center; gap: 8px; }
 .icon-btn { color: var(--text); font-size: 19px; padding: 8px 11px; }
 .back-link { color: var(--accent); }
+.signed-in-user { max-width: 180px; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.sign-in-btn { border: 1px solid var(--line); color: var(--accent); padding: 10px 12px; white-space: nowrap; }
+.auth-status { margin: 0 0 18px; }
 main { padding: 36px 0 54px; }
 .workspace { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(260px, .8fr); gap: 20px; align-items: stretch; }
 .panel {
@@ -251,6 +254,14 @@ select:focus, input:focus, textarea:focus { border-color: var(--teal); box-shado
 .formula-card > span { color: var(--muted); font-size: 10px; }
 .code-card { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; }
 .code-head { display: flex; justify-content: space-between; padding: 10px 13px; background: #101525; color: #c5cedb; font-size: 10px; }
+.student-resource-data { display: grid; gap: 9px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+.student-resource-data > label { color: var(--muted); font-size: 11px; font-weight: 700; }
+.student-resource-data textarea { width: 100%; resize: vertical; font-size: 12px; line-height: 1.65; }
+.bookmark-btn { justify-self: start; border: 1px solid var(--line); border-radius: 9px; background: var(--surface2); color: var(--text); padding: 9px 12px; font-size: 11px; font-weight: 700; transition: transform .2s, border-color .2s; }
+.bookmark-btn:hover { transform: translateY(-2px); border-color: var(--accent); }
+.bookmark-btn.bookmarked { border-color: var(--teal); color: var(--teal); }
+.resource-save-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.resource-status { color: var(--muted); font-size: 10px; }
 .admin-panel { margin: 0 auto 30px; max-width: 980px; }
 .admin-panel .section-heading p, .login-panel p { color: var(--muted); font-size: 12px; }
 .admin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -279,7 +290,8 @@ select:focus, input:focus, textarea:focus { border-color: var(--teal); box-shado
   .nav-btn { padding: 9px 10px; font-size: 11px; }
   .header-actions { gap: 2px; }
   .icon-btn { padding: 7px; }
-  .back-link { padding: 8px; font-size: 10px; }
+  .back-link, .sign-in-btn { padding: 8px; font-size: 10px; }
+  .signed-in-user { max-width: 92px; }
   main { padding-top: 24px; }
   .workspace { grid-template-columns: 1fr; }
   .history-list { max-height: 280px; }

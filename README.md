@@ -6,6 +6,8 @@ CalcBuddy is a React + TypeScript + Vite engineering utility with Basic, Advance
 - Scientific calculator using Math.js parsing/evaluation (no JavaScript `eval`).
 - Browser Web Speech API voice input and spoken-number/operator normalization.
 - Calculation history persisted in the browser.
+- Google sign-in with private, account-synced calculation history.
+- Student bookmarks and private notes for theory/code resources.
 - Matrix multiplication panel with configurable dimensions.
 - LaTeX preview using KaTeX.
 - Theory notes and syntax-highlighted code examples.
@@ -22,21 +24,18 @@ CalcBuddy is a React + TypeScript + Vite engineering utility with Basic, Advance
 1. Install dependencies: `npm install`
 2. Copy `.env.example` to `.env.local`.
 3. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the project's URL and publishable key. `VITE_SUPABASE_ANON_KEY` is also supported for older setups. Never use a secret/service-role key in a `VITE_` variable.
-4. In Supabase SQL Editor, run `supabase/schema.sql`.
+4. For a new project, run `supabase/schema.sql` in Supabase SQL Editor. For an existing project, run `supabase/migrations/20261016_student_data_and_admin_email.sql`.
 5. Start: `npm run dev`
 6. Production build: `npm run build`
 
 If Supabase is not configured, the calculator, matrix lab, LaTeX editor, and bundled demo archive still work. Admin CRUD and live sync require Supabase.
 
-## Configure administrator access
+## Configure Google sign-in and administrator access
 1. Enable the Google provider in Supabase Authentication and configure its OAuth credentials. In Google Cloud, add your app origin (for local development, `http://localhost:5173`) to **Authorized JavaScript origins** and `https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback` to **Authorized redirect URIs**.
 2. Add your local and deployed app URLs to Supabase Authentication → URL Configuration → Redirect URLs (for example, `http://localhost:5173/**` and `https://your-app.vercel.app/**`).
-3. The database trigger creates a `profiles` row with role `student`.
-4. Copy that user's Auth UUID, then run in SQL Editor:
-   ```sql
-   update public.profiles set role = 'admin' where id = 'AUTH_USER_UUID';
-   ```
-5. Open `/admin` on the deployed site and continue with Google. The app checks the signed-in user's database role and signs out non-admin users.
+3. Sign in from the app with Google. New accounts receive the `student` role and can sync calculation history, bookmarks, and personal resource notes.
+4. The migration promotes `sooryavanshibhawishya@gmail.com` to `admin` and sets all other existing profiles to `student`. The auth trigger keeps new accounts as students and assigns admin only to that email.
+5. Open `/admin` on the deployed site and continue with that Google account. The app checks the database role before showing the admin area.
 6. Do not expose the Supabase secret/service-role key to the frontend.
 
 ## Data model
@@ -45,11 +44,13 @@ If Supabase is not configured, the calculator, matrix lab, LaTeX editor, and bun
 - `notes`: title, slug, Markdown body, tags, published state, category relation
 - `note_formulas`: raw LaTeX formulas linked by `note_id`
 - `note_code_blocks`: code + language + title linked by `note_id`
+- `calculation_history`: per-user calculator expressions and results, protected by row-level security
+- `user_resource_data`: per-user bookmarks and private study notes, protected by row-level security
 
 ## Publishing content without redeployment
 Save a note with **Publish immediately** checked. The note and child rows are written to Supabase. The student archive fetches published notes from the live API and listens for changes to the `notes` table, refreshing its content after updates.
 
-For production, enable Realtime for `notes` in Supabase Database → Replication (the initial fetch works without Realtime). For strongest consistency, consider replacing separate note/formula/code writes with a PostgreSQL RPC transaction and add an audit log table.
+For production, enable Realtime for `notes` in Supabase Database → Replication (the initial fetch works without Realtime). Vercel is configured to serve the SPA entry point for routes such as `/admin`, including direct visits and refreshes. For strongest consistency, consider replacing separate note/formula/code writes with a PostgreSQL RPC transaction and add an audit log table.
 
 ## Important hardening before public launch
 This is a functional starter, not a completed security audit:

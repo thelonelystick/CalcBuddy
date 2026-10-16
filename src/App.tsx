@@ -25,6 +25,7 @@ type Note = {
 };
 type Mode = "Basic" | "Advanced" | "Theory" | "Code";
 type HistoryEntry = { expression: string; answer: string; timestamp: number };
+type ResourceData = { isBookmarked: boolean; personalNote: string };
 
 const demoNotes: Note[] = [
   {
@@ -115,6 +116,9 @@ function App() {
       return [];
     }
   });
+  const [historyOwner, setHistoryOwner] = useState("guest");
+  const [historyReady, setHistoryReady] = useState(true);
+  const [historyMessage, setHistoryMessage] = useState("");
   const [notes, setNotes] = useState<Note[]>(demoNotes);
   const [activeNote, setActiveNote] = useState<Note>(demoNotes[0]);
   const [search, setSearch] = useState("");
@@ -126,6 +130,10 @@ function App() {
   const [matrixResult, setMatrixResult] = useState("");
   const [latex, setLatex] = useState("f(x)=\\int_a^b f'(x)\\,dx");
   const [isListening, setIsListening] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [authMessage, setAuthMessage] = useState("");
+  const [resourceData, setResourceData] = useState<ResourceData>({ isBookmarked: false, personalNote: "" });
+  const [resourceMessage, setResourceMessage] = useState("");
   const [admin, setAdmin] = useState(false);
   const [sessionEmail, setSessionEmail] = useState("");
   const [adminMessage, setAdminMessage] = useState("");
@@ -140,8 +148,71 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
+    const client = supabase;
+    if (!client) return;
+    let alive = true;
+    void client.auth.getSession().then(({ data, error: sessionError }) => {
+      if (!alive) return;
+      if (sessionError) setAuthMessage(sessionError.message);
+      setUser(data.session?.user ?? null);
+    });
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setAuthMessage("");
+    });
+    return () => {
+      alive = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    const owner = user?.id ?? "guest";
+    setHistoryReady(false);
+    setHistoryOwner(owner);
+    setHistoryMessage("");
+
+    if (!user || !supabase) {
+      try {
+        const saved = localStorage.getItem("calcbuddy-history");
+        if (alive) setHistory(saved ? JSON.parse(saved) as HistoryEntry[] : []);
+      } catch (storageError) {
+        if (alive) {
+          setHistory([]);
+          setHistoryMessage(storageError instanceof Error ? storageError.message : "Could not load local history.");
+        }
+      }
+      if (alive) setHistoryReady(true);
+      return () => { alive = false; };
+    }
+
+    setHistory([]);
+    void supabase.from("calculation_history")
+      .select("expression,answer,created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .then(({ data, error: loadError }) => {
+        if (!alive) return;
+        if (loadError) {
+          setHistoryMessage(`Could not load your saved history: ${loadError.message}`);
+        } else {
+          setHistory((data || []).map(entry => ({
+            expression: entry.expression,
+            answer: entry.answer,
+            timestamp: Date.parse(entry.created_at),
+          })));
+        }
+        setHistoryReady(true);
+      });
+    return () => { alive = false; };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!historyReady || user || historyOwner !== "guest") return;
     localStorage.setItem("calcbuddy-history", JSON.stringify(history));
-  }, [history]);
+  }, [history, historyOwner, historyReady, user]);
 
   useEffect(() => {
     const client = supabase;
@@ -220,6 +291,32 @@ function App() {
   );
   const selectedNote = visibleNotes.find(note => note.id === activeNote.id) || visibleNotes[0];
 
+  useEffect(() => {
+    let alive = true;
+    if (!user || !selectedNote || !supabase) {
+      setResourceData({ isBookmarked: false, personalNote: "" });
+      setResourceMessage("");
+      return () => { alive = false; };
+    }
+    setResourceData({ isBookmarked: false, personalNote: "" });
+    setResourceMessage("");
+    const client = supabase;
+    void client.from("user_resource_data")
+      .select("is_bookmarked,personal_note")
+      .eq("user_id", user.id)
+      .eq("resource_slug", selectedNote.slug)
+      .maybeSingle()
+      .then(({ data, error: loadError }) => {
+        if (!alive) return;
+        if (loadError) {
+          setResourceMessage(`Could not load saved study data: ${loadError.message}`);
+        } else if (data) {
+          setResourceData({ isBookmarked: data.is_bookmarked, personalNote: data.personal_note });
+        }
+      });
+    return () => { alive = false; };
+  }, [user?.id, selectedNote?.slug]);
+
   function press(key: string) {
     setError("");
     if (key === "AC") {
@@ -235,7 +332,18 @@ function App() {
       try {
         const result = safeEvaluate(normalizeInput(expression));
         setAnswer(result);
-        setHistory(current => [{ expression, answer: result, timestamp: Date.now() }, ...current].slice(0, 20));
+        const entry = { expression, answer: result, timestamp: Date.now() };
+        setHistory(current => [entry, ...current].slice(0, 20));
+        setHistoryMessage("");
+        if (user && supabase) {
+          void supabase.from("calculation_history").insert({
+            user_id: user.id,
+            expression,
+            answer: result,
+          }).then(({ error: saveError }) => {
+            if (saveError) setHistoryMessage(`Could not sync this calculation: ${saveError.message}`);
+          });
+        }
       } catch (evaluationError) {
         setError(evaluationError instanceof Error ? evaluationError.message : "Invalid expression");
       }
@@ -294,16 +402,53 @@ function App() {
     }
   }
 
-  async function signInWithGoogle() {
+  async function signInWithGoogle(redirectPath: "/" | "/admin" = "/") {
     if (!supabase) {
-      setAdminMessage("Configure Supabase and enable Google sign-in to access the admin area.");
+      const message = "Google sign-in is unavailable because Supabase is not configured.";
+      if (redirectPath === "/admin") setAdminMessage(message);
+      else setAuthMessage(message);
       return;
     }
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/admin` },
+      options: { redirectTo: `${window.location.origin}${redirectPath}` },
     });
-    if (signInError) setAdminMessage(signInError.message);
+    if (signInError) {
+      if (redirectPath === "/admin") setAdminMessage(signInError.message);
+      else setAuthMessage(signInError.message);
+    }
+  }
+
+  async function clearHistory() {
+    if (user && supabase) {
+      const { error: deleteError } = await supabase.from("calculation_history").delete().eq("user_id", user.id);
+      if (deleteError) {
+        setHistoryMessage(`Could not clear saved history: ${deleteError.message}`);
+        return;
+      }
+    }
+    setHistory([]);
+    setHistoryMessage("");
+  }
+
+  async function saveResourceData(nextData: ResourceData) {
+    if (!user || !selectedNote || !supabase) {
+      setResourceMessage("Sign in with Google to save bookmarks and personal notes.");
+      return;
+    }
+    const { error: saveError } = await supabase.from("user_resource_data").upsert({
+      user_id: user.id,
+      resource_slug: selectedNote.slug,
+      resource_title: selectedNote.title,
+      is_bookmarked: nextData.isBookmarked,
+      personal_note: nextData.personalNote,
+    });
+    if (saveError) {
+      setResourceMessage(`Could not save study data: ${saveError.message}`);
+      return;
+    }
+    setResourceData(nextData);
+    setResourceMessage("Saved to your account.");
   }
 
   async function saveNote() {
@@ -401,6 +546,29 @@ function App() {
         {selectedNote.code_blocks?.length ? <div className="code-section">
           {selectedNote.code_blocks.map((block, index) => <CodeBlock key={index} language={block.language} code={block.code} title={block.title} />)}
         </div> : null}
+        <section className="student-resource-data">
+          <button
+            className={resourceData.isBookmarked ? "bookmark-btn bookmarked" : "bookmark-btn"}
+            onClick={() => void saveResourceData({ ...resourceData, isBookmarked: !resourceData.isBookmarked })}
+          >{resourceData.isBookmarked ? "Bookmarked" : "Bookmark resource"}</button>
+          <label htmlFor="personal-resource-note">Your study notes</label>
+          <textarea
+            id="personal-resource-note"
+            rows={4}
+            maxLength={5000}
+            value={resourceData.personalNote}
+            onChange={event => setResourceData(current => ({ ...current, personalNote: event.target.value }))}
+            placeholder={user ? "Write a private note about this resource..." : "Sign in with Google to save private notes."}
+            disabled={!user}
+          />
+          <div className="resource-save-row">
+            <button className="secondary-btn" onClick={() => user
+              ? void saveResourceData(resourceData)
+              : void signInWithGoogle("/")
+            }>{user ? "Save study notes" : "Sign in to save"}</button>
+            {resourceMessage && <span className="resource-status">{resourceMessage}</span>}
+          </div>
+        </section>
       </article> : <div className="panel empty-state">Choose a resource to view.</div>}
     </section>;
   }
@@ -418,6 +586,13 @@ function App() {
         >{tab}</button>)}
       </nav>}
       <div className="header-actions">
+        {!isAdminRoute && (user ? <>
+          <span className="signed-in-user">{user.email}</span>
+          <button className="sign-in-btn" onClick={async () => {
+            const { error: signOutError } = await supabase!.auth.signOut();
+            if (signOutError) setAuthMessage(`Could not sign out: ${signOutError.message}`);
+          }}>Sign out</button>
+        </> : <button className="sign-in-btn" onClick={() => void signInWithGoogle("/")}>Sign in with Google</button>)}
         {isAdminRoute && <a className="back-link" href="/">Back to calculator</a>}
         <button className="icon-btn" title="Toggle theme" aria-label="Toggle theme" onClick={() => setTheme(current => current === "dark" ? "light" : "dark")}>
           {theme === "dark" ? "☼" : "☾"}
@@ -426,6 +601,7 @@ function App() {
     </header>
 
     <main>
+      {!isAdminRoute && authMessage && <p className="status-message auth-status">{authMessage}</p>}
       {isAdminRoute ? (admin ? <section className="panel admin-panel">
         <div className="section-heading">
           <div><h1>Admin</h1><p>Signed in as {sessionEmail}</p></div>
@@ -484,7 +660,7 @@ function App() {
       </section> : <section className="panel login-panel">
         <h1>Admin</h1>
         <p>Sign in with an authorized Google account.</p>
-        <button className="google-btn" onClick={() => void signInWithGoogle()}>
+        <button className="google-btn" onClick={() => void signInWithGoogle("/admin")}>
           <span aria-hidden="true">G</span> Continue with Google
         </button>
         {adminMessage && <p className="status-message">{adminMessage}</p>}
@@ -502,11 +678,13 @@ function App() {
             <div className="keypad">{buttons.map((key, index) => <button
               key={`${key}-${index}`}
               className={`key ${["÷", "×", "−", "+", "^", "%", "!"].includes(key) ? "operator" : ""} ${["AC", "⌫"].includes(key) ? "special" : ""} ${key === "=" ? "equals-key" : ""}`}
+              disabled={key === "=" && Boolean(user) && !historyReady}
               onClick={() => press(key)}
             >{key}</button>)}</div>
           </div>
           <aside className="panel history-panel">
-            <div className="history-heading"><h2>History</h2><button className="clear-history" onClick={() => setHistory([])} disabled={!history.length}>Clear</button></div>
+            <div className="history-heading"><h2>History</h2><button className="clear-history" onClick={() => void clearHistory()} disabled={!history.length}>Clear</button></div>
+            {historyMessage && <p className="status-message">{historyMessage}</p>}
             {history.length ? <div className="history-list">{history.map((entry, index) => <button className="history-item" key={`${entry.timestamp}-${index}`} onClick={() => {
               setExpression(entry.expression);
               setAnswer(entry.answer);

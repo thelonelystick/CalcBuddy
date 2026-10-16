@@ -50,6 +50,26 @@ create table if not exists public.note_code_blocks (
   sort_order integer not null default 0
 );
 
+create table if not exists public.calculation_history (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  expression text not null check (length(expression) <= 1000),
+  answer text not null check (length(answer) <= 1000),
+  created_at timestamptz not null default now()
+);
+create index if not exists calculation_history_user_created_idx
+  on public.calculation_history (user_id, created_at desc);
+
+create table if not exists public.user_resource_data (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  resource_slug text not null,
+  resource_title text not null,
+  is_bookmarked boolean not null default false,
+  personal_note text not null default '' check (length(personal_note) <= 5000),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, resource_slug)
+);
+
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$
 begin new.updated_at = now(); return new; end; $$;
@@ -58,13 +78,21 @@ drop trigger if exists notes_updated_at on public.notes;
 create trigger notes_updated_at before update on public.notes
 for each row execute function public.set_updated_at();
 
--- New auth users get a student profile by default. Promote admins manually using SQL.
+-- New auth users get student access; the designated account is the sole automatic admin.
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   insert into public.profiles (id, display_name, role)
-  values (new.id, coalesce(new.raw_user_meta_data ->> 'full_name',''), 'student')
-  on conflict (id) do nothing;
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data ->> 'full_name',''),
+    case when lower(coalesce(new.email, '')) = 'sooryavanshibhawishya@gmail.com' then 'admin' else 'student' end
+  )
+  on conflict (id) do update
+    set role = case
+      when lower(coalesce(new.email, '')) = 'sooryavanshibhawishya@gmail.com' then 'admin'
+      else public.profiles.role
+    end;
   return new;
 end; $$;
 drop trigger if exists on_auth_user_created on auth.users;
@@ -76,6 +104,8 @@ alter table public.categories enable row level security;
 alter table public.notes enable row level security;
 alter table public.note_formulas enable row level security;
 alter table public.note_code_blocks enable row level security;
+alter table public.calculation_history enable row level security;
+alter table public.user_resource_data enable row level security;
 
 -- Helper function avoids repeating role checks. SECURITY DEFINER bypasses RLS on profiles
 -- for the lookup only; use a fixed search_path and revoke public execution.
@@ -88,9 +118,7 @@ grant execute on function public.is_admin() to authenticated;
 
 create policy "profiles read own or admin" on public.profiles
 for select to authenticated using (id = auth.uid() or public.is_admin());
-create policy "profiles update own display name or admin" on public.profiles
-for update to authenticated using (id = auth.uid() or public.is_admin())
-with check (id = auth.uid() or public.is_admin());
+drop policy if exists "profiles update own display name or admin" on public.profiles;
 
 create policy "published categories visible" on public.categories
 for select to anon, authenticated using (
@@ -125,10 +153,32 @@ for select to anon, authenticated using (
 create policy "admins manage code" on public.note_code_blocks
 for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
+drop policy if exists "users read own calculation history" on public.calculation_history;
+create policy "users read own calculation history" on public.calculation_history
+for select to authenticated using (user_id = auth.uid());
+drop policy if exists "users add own calculation history" on public.calculation_history;
+create policy "users add own calculation history" on public.calculation_history
+for insert to authenticated with check (user_id = auth.uid());
+drop policy if exists "users delete own calculation history" on public.calculation_history;
+create policy "users delete own calculation history" on public.calculation_history
+for delete to authenticated using (user_id = auth.uid());
+
+drop policy if exists "users manage own resource data" on public.user_resource_data;
+create policy "users manage own resource data" on public.user_resource_data
+for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
 grant select on public.categories, public.notes, public.note_formulas, public.note_code_blocks to anon, authenticated;
 grant insert, update, delete on public.categories, public.notes, public.note_formulas, public.note_code_blocks to authenticated;
-grant select, update on public.profiles to authenticated;
+grant select on public.profiles to authenticated;
+revoke update on public.profiles from authenticated;
+grant select, insert, delete on public.calculation_history to authenticated;
+grant select, insert, update, delete on public.user_resource_data to authenticated;
 
--- After creating the first user via Supabase Auth, promote that user:
--- update public.profiles set role = 'admin' where id = 'AUTH_USER_UUID';
+-- Keep this email as the only administrator; all other existing accounts are students.
+update public.profiles p set role = case
+  when lower(u.email) = 'sooryavanshibhawishya@gmail.com' then 'admin'
+  else 'student'
+end
+from auth.users u
+where p.id = u.id;
 -- Keep this SQL restricted to the project owner/admin. Do not expose SQL credentials.
